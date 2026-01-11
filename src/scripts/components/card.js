@@ -15,7 +15,7 @@ const getTemplate = () => {
 
 export const createCardElement = (
   data,
-  { onPreviewPicture, onLikeIcon, onDeleteCard },
+  { onPreviewPicture, onLikeIcon, onDeleteCard, onInfoClick },
   userId,
   cardId
 ) => {
@@ -57,6 +57,12 @@ export const createCardElement = (
   
   if (onPreviewPicture) {
     cardImage.addEventListener("click", () => onPreviewPicture({ name: data.name, link: data.link }));
+  }
+  
+  const infoButton = cardElement.querySelector(".card__control-button_type_info");
+  
+  if (onInfoClick) {
+    infoButton.addEventListener("click", () => onInfoClick(cardId));
   }
   
   return cardElement;

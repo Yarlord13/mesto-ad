@@ -50,6 +50,15 @@ const avatarFormModalWindow = document.querySelector(".popup_type_edit-avatar");
 const avatarForm = avatarFormModalWindow.querySelector(".popup__form");
 const avatarInput = avatarForm.querySelector(".popup__input");
 
+const cardInfoModalWindow = document.querySelector(".popup_type_info");
+const cardInfoModalTitle = cardInfoModalWindow.querySelector(".popup__title");
+const cardInfoModalInfoList = cardInfoModalWindow.querySelector(".popup__info");
+const cardInfoModalText = cardInfoModalWindow.querySelector(".popup__text");
+const cardInfoModalList = cardInfoModalWindow.querySelector(".popup__list");
+
+const deleteModalWindow = document.querySelector(".popup_type_remove-card");
+const deleteForm = deleteModalWindow.querySelector(".popup__form");
+
 let currentUserId = "";
 
 // Функция для рендеринга карточек
@@ -65,7 +74,8 @@ const renderCard = (cardData, userId) => {
     {
       onPreviewPicture: handlePreviewPicture,
       onLikeIcon: (likeButton, cardId) => handleLikeCard(likeButton, cardId, cardData),
-      onDeleteCard: (cardElement, cardId) => handleDeleteCard(cardElement, cardId),
+      onDeleteCard: (cardElement, cardId) => openDeleteModal(cardElement, cardId),
+      onInfoClick: handleInfoClick,
     },
     userId,
     cardData._id
@@ -103,14 +113,29 @@ const handleLikeCard = (likeButton, cardId, cardData) => {
 };
 
 // Обработчик удаления карточки
-const handleDeleteCard = (cardElement, cardId) => {
-  deleteCardFromServer(cardId)
-    .then(() => {
-      cardElement.remove();
-    })
-    .catch((err) => {
-      console.log(err);
-    });
+let currentCardIdToDelete = null;
+let currentCardElementToDelete = null;
+
+const openDeleteModal = (cardElement, cardId) => {
+  currentCardElementToDelete = cardElement;
+  currentCardIdToDelete = cardId;
+  openModalWindow(deleteModalWindow);
+};
+
+const handleDeleteFormSubmit = (evt) => {
+  evt.preventDefault();
+  if (currentCardIdToDelete && currentCardElementToDelete) {
+    deleteCardFromServer(currentCardIdToDelete)
+      .then(() => {
+        currentCardElementToDelete.remove();
+        closeModalWindow(deleteModalWindow);
+        currentCardIdToDelete = null;
+        currentCardElementToDelete = null;
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }
 };
 
 // Обработчик отправки формы профиля
@@ -192,6 +217,7 @@ const handleCardFormSubmit = (evt) => {
 profileForm.addEventListener("submit", handleProfileFormSubmit);
 cardForm.addEventListener("submit", handleCardFormSubmit);
 avatarForm.addEventListener("submit", handleAvatarFormSubmit);
+deleteForm.addEventListener("submit", handleDeleteFormSubmit);
 
 // Открытие формы редактирования профиля
 openProfileFormButton.addEventListener("click", () => {
@@ -240,3 +266,73 @@ const allPopups = document.querySelectorAll(".popup");
 allPopups.forEach((popup) => {
   setCloseModalWindowEventListeners(popup);
 });
+
+const formatDate = (date) =>
+  date.toLocaleDateString("ru-RU", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+const handleInfoClick = (cardId) => {
+  getCardList()
+    .then((cards) => {
+      const cardData = cards.find(card => card._id === cardId);
+      if (!cardData) {
+        return;
+      }
+
+      // Очищаем предыдущие данные
+      cardInfoModalTitle.textContent = "Информация о карточке";
+      cardInfoModalInfoList.innerHTML = '';
+      cardInfoModalList.innerHTML = '';
+
+      // Функция для создания элемента информации
+      const createInfoString = (term, description) => {
+        const template = document.getElementById('popup-info-definition-template').content;
+        const infoElement = template.querySelector('.popup__info-item').cloneNode(true);
+        infoElement.querySelector('.popup__info-term').textContent = term;
+        infoElement.querySelector('.popup__info-description').textContent = description;
+        return infoElement;
+      };
+
+      // Добавляем информацию о карточке
+      cardInfoModalInfoList.append(
+        createInfoString(
+          "Описание:",
+          cardData.name
+        ),
+        createInfoString(
+          "Дата создания:",
+          formatDate(new Date(cardData.createdAt))
+        ),
+        createInfoString(
+          "Владелец:",
+          cardData.owner.name
+        ),
+        createInfoString(
+          "Количество лайков:",
+          cardData.likes.length
+        )
+      );
+
+      // Добавляем заголовок для списка лайкнувших
+      cardInfoModalText.textContent = "Лайкнули:";
+
+      // Добавляем список лайкнувших
+      cardData.likes.forEach(like => {
+        const template = document.getElementById('popup-info-user-preview-template').content;
+        const userElement = template.querySelector('.popup__list-item').cloneNode(true);
+
+        userElement.innerHTML = `
+          <p class="popup__user-name">${like.name}</p>
+        `;
+        cardInfoModalList.append(userElement);
+      });
+
+      openModalWindow(cardInfoModalWindow);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
