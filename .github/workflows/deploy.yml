@@ -1,4 +1,4 @@
-name: Deploy to Public Pages Repository
+name: Deploy to GitHub Pages Repository
 
 on:
   push:
@@ -7,40 +7,51 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-    
+        
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20'  # Vite 5 требует Node.js 18+
           cache: 'npm'
-      
-      - name: Clean install
+          
+      - name: Clean install dependencies
         run: |
-          # Очищаем кэш и node_modules для чистоты
+          # Полная очистка и установка
           rm -rf node_modules package-lock.json
           npm cache clean --force
-      
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-    
-      - name: Check Vite installation
+          npm ci --legacy-peer-deps
+          
+      - name: Set executable permissions
         run: |
-          echo "Checking vite in node_modules..."
-          ls -la node_modules/.bin/ | grep vite
-          # Даем права на выполнение
-          chmod +x node_modules/.bin/vite || true
-      
-      - name: Build project
-        run: npm run build
-
-
-      - name: Deploy to GitHub Pages
+          # Даём права на выполнение для vite и других бинарных файлов
+          chmod +x node_modules/.bin/* || true
+          chmod -R 755 node_modules || true
+          
+      - name: Verify Vite installation
+        run: |
+          echo "Checking vite binary..."
+          ls -la node_modules/.bin/vite 2>/dev/null || echo "Vite binary not found"
+          which vite || npx vite --version || echo "Checking via npx"
+          
+      - name: Build with Vite
+        run: |
+          # Используем npx для гарантированного запуска
+          npx vite build
+          
+      - name: Verify build output
+        run: |
+          echo "Build directory contents:"
+          ls -la dist/
+          echo "Checking if index.html exists..."
+          test -f dist/index.html && echo "✓ index.html exists" || echo "✗ index.html missing"
+          
+      - name: Deploy to external repository
         uses: peaceiris/actions-gh-pages@v3
         with:
           personal_token: ${{ secrets.PUBLIC_PAGES_TOKEN }}
@@ -49,4 +60,5 @@ jobs:
           publish_branch: ${{ secrets.PUBLIC_PAGES_BRANCH || 'main' }}
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'deploy: update build'
+          commit_message: 'deploy: update build from ${{ github.sha }}'
+          force_orphan: true  # Очищает ветку перед загрузкой
