@@ -17,39 +17,40 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'  # Vite 5 требует Node.js 18+
+          node-version: '20'
           cache: 'npm'
           
-      - name: Clean install dependencies
+      - name: Install dependencies
         run: |
-          # Полная очистка и установка
-          rm -rf node_modules package-lock.json
-          npm cache clean --force
           npm ci --legacy-peer-deps
           
       - name: Set executable permissions
         run: |
-          # Даём права на выполнение для vite и других бинарных файлов
-          chmod +x node_modules/.bin/* || true
-          chmod -R 755 node_modules || true
+          # Даём права на выполнение бинарным файлам
+          if [ -d "node_modules/.bin" ]; then
+            chmod +x node_modules/.bin/*
+          fi
           
       - name: Verify Vite installation
         run: |
-          echo "Checking vite binary..."
-          ls -la node_modules/.bin/vite 2>/dev/null || echo "Vite binary not found"
-          which vite || npx vite --version || echo "Checking via npx"
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "Checking vite..."
+          npx vite --version || echo "Vite check failed"
           
       - name: Build with Vite
-        run: |
-          # Используем npx для гарантированного запуска
-          npx vite build
+        run: npx vite build
           
       - name: Verify build output
         run: |
           echo "Build directory contents:"
-          ls -la dist/
-          echo "Checking if index.html exists..."
-          test -f dist/index.html && echo "✓ index.html exists" || echo "✗ index.html missing"
+          ls -la dist/ 2>/dev/null || echo "dist directory not found"
+          if [ -f "dist/index.html" ]; then
+            echo "✓ index.html exists"
+          else
+            echo "✗ index.html missing"
+            find . -name "*.html" | head -5
+          fi
           
       - name: Deploy to external repository
         uses: peaceiris/actions-gh-pages@v3
@@ -61,4 +62,4 @@ jobs:
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'deploy: update build from ${{ github.sha }}'
-          force_orphan: true  # Очищает ветку перед загрузкой
+          force_orphan: true
