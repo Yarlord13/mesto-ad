@@ -13,18 +13,32 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+    
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-            node-version: '>=22.12'
-            cache: 'npm'
-
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Clean install
+        run: |
+          # Очищаем кэш и node_modules для чистоты
+          rm -rf node_modules package-lock.json
+          npm cache clean --force
+      
       - name: Install dependencies
-        run: npm install
-
+        run: npm ci --legacy-peer-deps
+    
+      - name: Check Vite installation
+        run: |
+          echo "Checking vite in node_modules..."
+          ls -la node_modules/.bin/ | grep vite
+          # Даем права на выполнение
+          chmod +x node_modules/.bin/vite || true
+      
       - name: Build project
-        run: npx vite build
+        run: npm run build
+
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
